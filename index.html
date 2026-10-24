@@ -3,43 +3,92 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>ChibiSoyo AR 表示テスト</title>
+  <title>ChibiSoyo Live2D AR</title>
+  <style>
+    html, body { margin: 0; overflow: hidden; width: 100%; height: 100%; }
+    #status {
+      position: fixed; top: 12px; left: 12px; right: 12px; z-index: 1000;
+      padding: 10px 14px; border-radius: 8px;
+      background: rgba(0,0,0,.65); color: white; text-align: center;
+      font: 14px sans-serif; pointer-events: none;
+    }
+  </style>
+  <!-- MindAR / A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <style>
-    body { margin: 0; overflow: hidden; font-family: sans-serif; }
-    #status { position: fixed; top: 12px; left: 12px; right: 12px; z-index: 1000; padding: 10px 14px; border-radius: 8px; background: rgba(0,0,0,.65); color: white; text-align: center; pointer-events: none; }
-  </style>
+  <!-- Cubism Core はLive2Dのモジュールより先に読み込む -->
+  <script src="./Core/live2dcubismcore.js"></script>
+  <script>
+    AFRAME.registerComponent('chibisoyo-texture', {
+      init: function () {
+        this.canvas = null;
+        this.texture = null;
+        this.ready = false;
+      },
+      tick: function () {
+        if (!this.canvas) {
+          this.canvas = document.getElementById('chibisoyo-live2d-0');
+          if (!this.canvas || !this.canvas.width || !this.canvas.height) return;
+        }
+        const mesh = this.el.getObject3D('mesh');
+        if (!mesh) return;
+        if (!this.texture) {
+          this.texture = new THREE.CanvasTexture(this.canvas);
+          this.texture.colorSpace = THREE.SRGBColorSpace;
+          this.texture.needsUpdate = true;
+          const material = new THREE.MeshBasicMaterial({
+            map: this.texture,
+            transparent: true,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            toneMapped: false
+          });
+          if (Array.isArray(mesh.material)) mesh.material.forEach(m => m.dispose());
+          else if (mesh.material) mesh.material.dispose();
+          mesh.material = material;
+          this.ready = true;
+          document.getElementById('status').textContent =
+            'Live2Dを準備しました。パッケージを映してください';
+        }
+        // WebGL Canvasを毎フレームThree.js側へコピーする
+        this.texture.needsUpdate = true;
+      },
+      remove: function () {
+        if (this.texture) this.texture.dispose();
+      }
+    });
+  </script>
+  <!-- ビルド後のJSをchibisoyo-live2d.jsに名前変更して配置 -->
+  <script type="module" src="./assets/chibisoyo-live2d.js"></script>
 </head>
 <body>
-  <div id="status">カメラを起動し、パッケージ画像を映してください</div>
+  <div id="status">カメラを起動しています…</div>
   <a-scene
     mindar-image="imageTargetSrc: ./ChibiSoyo_package.mind; autoStart: true;"
     color-space="sRGB"
-    renderer="colorManagement: true, physicallyCorrectLights: true"
+    renderer="colorManagement: true; alpha: true;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
     embedded>
     <a-assets></a-assets>
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity mindar-image-target="targetIndex: 0" id="target">
-      <!-- Image target center; box protrudes toward the camera. -->
-      <a-box position="0 0 0.25" width="0.45" height="0.45" depth="0.45"
-             material="color: #ff1744; opacity: 1; side: double"
-             rotation="0 25 0"></a-box>
+      <!-- 画像表面から少し浮かせた平面。サイズは実機で調整 -->
+      <a-plane position="0 0 0.02" width="0.85" height="0.85"
+               chibisoyo-texture></a-plane>
     </a-entity>
   </a-scene>
   <script>
     const status = document.getElementById('status');
     const target = document.getElementById('target');
     target.addEventListener('targetFound', () => {
-      status.textContent = '認識成功！ 赤い立方体が画像に追従するか確認してください';
+      status.textContent = '認識成功！ ChibiSoyoを表示しています';
     });
     target.addEventListener('targetLost', () => {
-      status.textContent = '認識が外れました。画像をもう一度映してください';
+      status.textContent = '認識が外れました。パッケージを映してください';
     });
     document.querySelector('a-scene').addEventListener('arError', () => {
-      status.textContent = 'カメラを起動できません。HTTPSとカメラ許可を確認してください';
+      status.textContent = 'AR起動エラー。HTTPSとカメラ許可を確認してください';
     });
   </script>
 </body>
