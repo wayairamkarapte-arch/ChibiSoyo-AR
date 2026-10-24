@@ -1,0 +1,98 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "ChibiSoyo.moc3",
+		"Textures": [
+			"ChibiSoyo.2048/texture_00.png",
+			"ChibiSoyo.2048/texture_01.png"
+		],
+		"Physics": "ChibiSoyo.physics3.json",
+		"DisplayInfo": "ChibiSoyo.cdi3.json",
+		"Motions": {
+			"Appear": [
+				{
+					"File": "Motion1.motion3.json",
+					"FadeInTime": 0.1,
+					"FadeOutTime": 0.1
+				}
+			],
+			"Idle": [
+				{
+					"File": "ID.motion3.json"
+				}
+			],
+			"TapHead": [
+				{
+					"File": "Reaction2.motion3.json",
+					"FadeInTime": 0.1,
+					"FadeOutTime": 0.1
+				}
+			],
+			"TapCheek": [
+				{
+					"File": "Reaction4.motion3.json",
+					"FadeInTime": 0.1,
+					"FadeOutTime": 0.1
+				}
+			],
+			"TapStick": [
+				{
+					"File": "Reaction3.motion3.json",
+					"FadeInTime": 0.1,
+					"FadeOutTime": 0.1
+				}
+			],
+			"TapBody": [
+				{
+					"File": "Reaction5.motion3.json",
+					"FadeInTime": 0.1,
+					"FadeOutTime": 0.1
+				}
+			],
+			"TapHand": [
+				{
+					"File": "Reaction1.motion3.json",
+					"FadeInTime": 0.1,
+					"FadeOutTime": 0.1
+				}
+			]
+		}
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": [
+				"ParamEyeLOpen",
+				"ParamEyeROpen"
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": []
+		}
+	],
+	"HitAreas": [
+		{
+			"Id": "HitArea",
+			"Name": "Head"
+		},
+		{
+			"Id": "HitArea2",
+			"Name": "Cheek"
+		},
+		{
+			"Id": "HitArea3",
+			"Name": "Stick"
+		},
+		{
+			"Id": "HitArea4",
+			"Name": "Body"
+		},
+		{
+			"Id": "HitArea5",
+			"Name": "Hand"
+		}
+	]
+}
