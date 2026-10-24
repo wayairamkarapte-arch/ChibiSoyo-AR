@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>ChibiSoyo AR 認識テスト</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    #status { position: fixed; top: 12px; left: 12px; right: 12px; z-index: 1000; padding: 10px 14px; border-radius: 8px; background: rgba(0,0,0,.65); color: white; text-align: center; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="status">カメラを起動し、パッケージ画像を映してください</div>
+  <a-scene
+    mindar-image="imageTargetSrc: ./ChibiSoyo_package.mind; autoStart: true;"
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights: true"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    embedded>
+    <a-assets></a-assets>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <a-entity mindar-image-target="targetIndex: 0" id="target">
+      <a-plane position="0 0 0" width="1" height="1" material="color: #00ff88; opacity: 0.2; transparent: true; side: double"></a-plane>
+      <a-plane position="0 0 0.01" width="1" height="0.025" material="color: #00ff88; side: double"></a-plane>
+      <a-plane position="0 -0.5 0.01" width="1" height="0.025" material="color: #00ff88; side: double"></a-plane>
+      <a-plane position="-0.5 0 0.01" width="0.025" height="1" material="color: #00ff88; side: double"></a-plane>
+      <a-plane position="0.5 0 0.01" width="0.025" height="1" material="color: #00ff88; side: double"></a-plane>
+    </a-entity>
+  </a-scene>
+  <script>
+    const status = document.getElementById('status');
+    const target = document.getElementById('target');
+    target.addEventListener('targetFound', () => { status.textContent = '認識成功！ 緑色の枠が画像に追従します'; });
+    target.addEventListener('targetLost', () => { status.textContent = '認識が外れました。画像をもう一度映してください'; });
+    document.querySelector('a-scene').addEventListener('arError', () => { status.textContent = 'カメラを起動できません。HTTPSとカメラ許可を確認してください'; });
+  </script>
+</body>
+</html>
