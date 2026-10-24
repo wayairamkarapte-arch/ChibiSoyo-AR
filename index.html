@@ -6,6 +6,14 @@
   <title>ChibiSoyo Live2D AR</title>
   <style>
     html, body { margin: 0; overflow: hidden; width: 100%; height: 100%; }
+    #status[hidden] { display: none !important; }
+    #adjust-button { position: fixed; right: 12px; bottom: 12px; z-index: 1100; border: 0; border-radius: 50%; width: 42px; height: 42px; background: rgba(0,0,0,.65); color: white; font-size: 21px; }
+    #adjust-panel { position: fixed; right: 12px; bottom: 64px; z-index: 1100; width: min(300px, calc(100vw - 24px)); background: rgba(18,18,24,.9); color: white; border-radius: 12px; padding: 14px; font: 13px sans-serif; box-sizing: border-box; }
+    #adjust-panel[hidden] { display: none !important; }
+    #adjust-panel label { display: block; margin: 8px 0; }
+    #adjust-panel input { width: 100%; display: block; }
+    #adjust-panel button { padding: 7px 12px; border-radius: 6px; border: 0; }
+    #adjust-panel small { display: block; opacity: .8; margin-top: 8px; }
     #status {
       position: fixed; top: 12px; left: 12px; right: 12px; z-index: 1000;
       padding: 10px 14px; border-radius: 8px;
@@ -47,8 +55,7 @@
           else if (mesh.material) mesh.material.dispose();
           mesh.material = material;
           this.ready = true;
-          document.getElementById('status').textContent =
-            'Live2Dを準備しました。パッケージを映してください';
+          // 認識前の案内文は変更せず、認識中は非表示にする。
         }
         // WebGL Canvasを毎フレームThree.js側へコピーする
         this.texture.needsUpdate = true;
@@ -62,7 +69,17 @@
   <script type="module" src="./assets/chibisoyo-live2d.js"></script>
 </head>
 <body>
-  <div id="status">カメラを起動しています…</div>
+  <div id="status">そよぎを映してください</div>
+  <button id="adjust-button" type="button" aria-label="位置調整">⚙</button>
+  <div id="adjust-panel" hidden>
+    <strong>そよぎの位置調整</strong>
+    <label>左右 <input id="offset-x" type="range" min="-0.5" max="0.5" step="0.005" value="0"></label>
+    <label>上下 <input id="offset-y" type="range" min="-0.5" max="0.5" step="0.005" value="0"></label>
+    <label>大きさ <input id="scale" type="range" min="0.2" max="2.5" step="0.01" value="0.85"></label>
+    <label>回転 <input id="rotation" type="range" min="-180" max="180" step="1" value="0"></label>
+    <button id="reset-adjust" type="button">初期位置に戻す</button>
+    <small>位置はこの端末に保存されます。画面のそよぎをタップするとリアクションを試せます。</small>
+  </div>
   <a-scene
     mindar-image="imageTargetSrc: ./ChibiSoyo_package.mind; autoStart: true;"
     color-space="sRGB"
@@ -74,7 +91,7 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity mindar-image-target="targetIndex: 0" id="target">
       <!-- 画像表面から少し浮かせた平面。サイズは実機で調整 -->
-      <a-plane position="0 0 0.02" width="0.85" height="0.85"
+      <a-plane id="live2d-plane" position="0 0 0.02" width="0.85" height="0.85"
                chibisoyo-texture></a-plane>
     </a-entity>
   </a-scene>
@@ -82,13 +99,78 @@
     const status = document.getElementById('status');
     const target = document.getElementById('target');
     target.addEventListener('targetFound', () => {
-      status.textContent = '認識成功！ ChibiSoyoを表示しています';
+      status.hidden = true;
     });
     target.addEventListener('targetLost', () => {
-      status.textContent = '認識が外れました。パッケージを映してください';
+      status.hidden = false;
+      status.textContent = 'そよぎを映してください';
     });
     document.querySelector('a-scene').addEventListener('arError', () => {
       status.textContent = 'AR起動エラー。HTTPSとカメラ許可を確認してください';
+    });
+
+    // 画像に合わせた位置調整。端末内に保存して次回も再利用する。
+    const plane = document.getElementById('live2d-plane');
+    const defaults = { x: 0, y: 0, scale: 0.85, rotation: 0 };
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('chibisoyo-ar-placement') || '{}'); } catch (_) {}
+    const placement = Object.assign({}, defaults, saved);
+    const inputs = {
+      x: document.getElementById('offset-x'),
+      y: document.getElementById('offset-y'),
+      scale: document.getElementById('scale'),
+      rotation: document.getElementById('rotation')
+    };
+    function applyPlacement() {
+      plane.setAttribute('position', `${placement.x} ${placement.y} 0.02`);
+      plane.setAttribute('width', placement.scale);
+      plane.setAttribute('height', placement.scale);
+      plane.setAttribute('rotation', `0 0 ${placement.rotation}`);
+      try { localStorage.setItem('chibisoyo-ar-placement', JSON.stringify(placement)); } catch (_) {}
+    }
+    Object.keys(inputs).forEach(key => {
+      inputs[key].value = placement[key];
+      inputs[key].addEventListener('input', () => {
+        placement[key] = Number(inputs[key].value);
+        applyPlacement();
+      });
+    });
+    applyPlacement();
+    document.getElementById('adjust-button').addEventListener('click', () => {
+      const panel = document.getElementById('adjust-panel');
+      panel.hidden = !panel.hidden;
+    });
+    document.getElementById('reset-adjust').addEventListener('click', () => {
+      Object.assign(placement, defaults);
+      Object.keys(inputs).forEach(key => inputs[key].value = placement[key]);
+      applyPlacement();
+    });
+
+    // AR平面上のタップ位置をLive2D Canvas座標へ変換して既存のリアクションを呼び出す。
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const scene = document.querySelector('a-scene');
+    scene.addEventListener('pointerup', (event) => {
+      if (!event.isTrusted || !target.object3D.visible) return;
+      if (document.getElementById('adjust-panel').contains(event.target) ||
+          event.target.closest?.('#adjust-button')) return;
+      const canvas = document.getElementById('chibisoyo-live2d-0');
+      const mesh = plane.getObject3D('mesh');
+      const camera = scene.camera;
+      if (!canvas || !mesh || !camera) return;
+      const rect = scene.canvas?.getBoundingClientRect();
+      if (!rect || !rect.width || !rect.height) return;
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObject(mesh, true);
+      if (!hits.length || !hits[0].uv) return;
+      const uv = hits[0].uv;
+      const dpr = window.devicePixelRatio || 1;
+      const x = uv.x * canvas.width / dpr;
+      const y = (1 - uv.y) * canvas.height / dpr;
+      document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }));
+      document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x, clientY: y }));
     });
   </script>
 </body>
