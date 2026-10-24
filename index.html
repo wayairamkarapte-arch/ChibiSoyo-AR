@@ -146,32 +146,55 @@
       applyPlacement();
     });
 
-    // AR平面上のタップ位置をLive2D Canvas座標へ変換して既存のリアクションを呼び出す。
+    // AR平面のUVを、画面外にあるLive2D Canvasの座標へ変換する。
+    // SDK側は document のpointerイベントを監視し、canvas.offsetLeft/Topを差し引く。
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const scene = document.querySelector('a-scene');
-    scene.addEventListener('pointerup', (event) => {
-      if (!event.isTrusted || !target.object3D.visible) return;
-      if (document.getElementById('adjust-panel').contains(event.target) ||
-          event.target.closest?.('#adjust-button')) return;
-      const canvas = document.getElementById('chibisoyo-live2d-0');
+    let targetVisible = false;
+    target.addEventListener('targetFound', () => { targetVisible = true; });
+    target.addEventListener('targetLost', () => { targetVisible = false; });
+
+    // ARの描画キャンバス以外のボタン・スライダー操作は除外する。
+    // documentで受け取ることでiOS Safariでもscene要素のバブリングに依存しない。
+    document.addEventListener('pointerup', (event) => {
+      if (!event.isTrusted || !targetVisible) return;
+      if (event.target.closest?.('#adjust-panel, #adjust-button')) return;
+      const liveCanvas = document.getElementById('chibisoyo-live2d-0');
       const mesh = plane.getObject3D('mesh');
       const camera = scene.camera;
-      if (!canvas || !mesh || !camera) return;
-      const rect = scene.canvas?.getBoundingClientRect();
-      if (!rect || !rect.width || !rect.height) return;
-      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const arCanvas = scene.canvas;
+      if (!liveCanvas || !mesh || !camera || !arCanvas) return;
+
+      const rect = arCanvas.getBoundingClientRect();
+      if (!rect.width || !rect.height || !liveCanvas.clientWidth || !liveCanvas.clientHeight) return;
+      pointer.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        1 - ((event.clientY - rect.top) / rect.height) * 2
+      );
       raycaster.setFromCamera(pointer, camera);
+      // A-Frameのオブジェクト行列をタップ直前に更新する。
+      mesh.updateWorldMatrix(true, true);
       const hits = raycaster.intersectObject(mesh, true);
       if (!hits.length || !hits[0].uv) return;
+
       const uv = hits[0].uv;
-      const dpr = window.devicePixelRatio || 1;
-      const x = uv.x * canvas.width / dpr;
-      const y = (1 - uv.y) * canvas.height / dpr;
-      document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }));
-      document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x, clientY: y }));
-    });
+      // ★重要: Live2D Canvasはleft:-10000pxにあるため、offsetLeftを加える。
+      // Canvas.widthはDPR込みのピクセル数なので、CSS上のclientWidthを使う。
+      const pageX = liveCanvas.offsetLeft + uv.x * liveCanvas.clientWidth;
+      const pageY = liveCanvas.offsetTop + (1 - uv.y) * liveCanvas.clientHeight;
+      const init = {
+        bubbles: true,
+        cancelable: true,
+        pointerId: event.pointerId || 1,
+        pointerType: event.pointerType || 'touch',
+        clientX: pageX - window.scrollX,
+        clientY: pageY - window.scrollY
+      };
+      // Cubism SDKの既存のonPointerBegan/Endedとヒット判定をそのまま利用する。
+      document.dispatchEvent(new PointerEvent('pointerdown', init));
+      document.dispatchEvent(new PointerEvent('pointerup', init));
+    }, { passive: true });
   </script>
 </body>
 </html>
