@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>ChibiSoyo AR 認識テスト</title>
+  <title>ChibiSoyo AR 表示テスト</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <style>
@@ -23,19 +23,24 @@
     <a-assets></a-assets>
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity mindar-image-target="targetIndex: 0" id="target">
-      <a-plane position="0 0 0" width="1" height="1" material="color: #00ff88; opacity: 0.2; transparent: true; side: double"></a-plane>
-      <a-plane position="0 0 0.01" width="1" height="0.025" material="color: #00ff88; side: double"></a-plane>
-      <a-plane position="0 -0.5 0.01" width="1" height="0.025" material="color: #00ff88; side: double"></a-plane>
-      <a-plane position="-0.5 0 0.01" width="0.025" height="1" material="color: #00ff88; side: double"></a-plane>
-      <a-plane position="0.5 0 0.01" width="0.025" height="1" material="color: #00ff88; side: double"></a-plane>
+      <!-- Image target center; box protrudes toward the camera. -->
+      <a-box position="0 0 0.25" width="0.45" height="0.45" depth="0.45"
+             material="color: #ff1744; opacity: 1; side: double"
+             rotation="0 25 0"></a-box>
     </a-entity>
   </a-scene>
   <script>
     const status = document.getElementById('status');
     const target = document.getElementById('target');
-    target.addEventListener('targetFound', () => { status.textContent = '認識成功！ 緑色の枠が画像に追従します'; });
-    target.addEventListener('targetLost', () => { status.textContent = '認識が外れました。画像をもう一度映してください'; });
-    document.querySelector('a-scene').addEventListener('arError', () => { status.textContent = 'カメラを起動できません。HTTPSとカメラ許可を確認してください'; });
+    target.addEventListener('targetFound', () => {
+      status.textContent = '認識成功！ 赤い立方体が画像に追従するか確認してください';
+    });
+    target.addEventListener('targetLost', () => {
+      status.textContent = '認識が外れました。画像をもう一度映してください';
+    });
+    document.querySelector('a-scene').addEventListener('arError', () => {
+      status.textContent = 'カメラを起動できません。HTTPSとカメラ許可を確認してください';
+    });
   </script>
 </body>
 </html>
